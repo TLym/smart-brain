@@ -48,6 +48,39 @@ class App extends Component {
     this.state = initialState;
   }
 
+  componentDidMount() {
+    const token = window.sessionStorage.getItem('token');
+    if(token) {
+      fetch('http://localhost:3000/signin', {
+        method: 'post', 
+        headers: {
+          'Content-type': 'application/json', 
+          'Authorization': token
+        }
+      })
+        .then(resp => resp.json())
+        .then(data => {
+          if (data && data.id){
+            fetch(`http://localhost:3000/profile/${data.id}`, {
+              method: 'get', 
+              headers: {
+                'Content-Type': 'application/json', 
+                'Authorization': token
+              }
+            })
+            .then(resp => resp.json())
+            .then(user => {
+              if (user && user.email) {
+                this.loadUser(user);
+                this.onRouteChange('home');
+              }
+            })
+          }
+        })
+        .catch(console.log); 
+    }
+  }
+
   loadUser = (data) => {
     this.setState({user: {
       id: data.id,
@@ -59,27 +92,28 @@ class App extends Component {
   }
 
   calculateFaceLocations = (data) => {
-    // console.log(data); 
-    return data.outputs[0].data.regions.map(face => {
-      // console.log(face); 
-      const faceLocation = face.region_info.bounding_box; 
-      const image = document.getElementById('inputimage');
-      const width = Number(image.width);
-      const height = Number(image.height);
-      return {
-        leftCol: faceLocation.left_col * width,
-        topRow: faceLocation.top_row * height,
-        rightCol: width - (faceLocation.right_col * width),
-        bottomRow: height - (faceLocation.bottom_row * height)
-      }
-      // console.log(boundingBoxCoordinates); 
-      // return boundingBoxCoordinates; 
-    });
-    // return clarifaiFaces; 
+    if(data && data.outputs) {
+      return data.outputs[0].data.regions.map(face => {
+        // console.log(face); 
+        const faceLocation = face.region_info.bounding_box; 
+        const image = document.getElementById('inputimage');
+        const width = Number(image.width);
+        const height = Number(image.height);
+        return {
+          leftCol: faceLocation.left_col * width,
+          topRow: faceLocation.top_row * height,
+          rightCol: width - (faceLocation.right_col * width),
+          bottomRow: height - (faceLocation.bottom_row * height)
+        }
+      });
+    }
+    return;
   }; 
 
   displayFaceBoxes = (boxes) => {
-    this.setState({boxes: boxes});
+    if (boxes) {
+      this.setState({boxes: boxes});
+    }
   }
 
   onInputChange = (event) => {
@@ -87,10 +121,14 @@ class App extends Component {
   }
 
   onButtonSubmit = () => {
+    const token = window.sessionStorage.getItem('token');
     this.setState({imageUrl: this.state.input});
       fetch('http://localhost:3000/imageurl', {
         method: 'post',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json', 
+          'Authorization': token
+        },
         body: JSON.stringify({
           input: this.state.input
         })
@@ -100,7 +138,10 @@ class App extends Component {
         if (response) {
           fetch('http://localhost:3000/image', {
             method: 'put',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json', 
+              'Authorization': token
+            },
             body: JSON.stringify({
               id: this.state.user.id
             })
@@ -149,6 +190,7 @@ class App extends Component {
               <Profile 
                 isProfileOpen={isProfileOpen} 
                 toggleModal={this.toggleModal} 
+                loadUser={this.loadUser}
                 user={user}/>
             </Modal>
           }
